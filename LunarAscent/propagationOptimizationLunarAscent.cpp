@@ -43,7 +43,7 @@ public:
     /*!
      * Contructor
      * \param vehicleBody Body object for the ascent vehicle
-     * \param initialTime Start time of the propagatiin
+     * \param initialTime Start time of the propagation
      * \param parameterVector Vector of independent variables to be used for thrust parameterization:
      *   - Entry 0: Constant thrust magnitude
      *   - Entry 1: Constant spacing in time between nodes
@@ -191,8 +191,7 @@ int main( )
 
     // DEFINE PROBLEM INDEPENDENT VARIABLES HERE:
     std::vector< double > thrustParameters =
-    { 15629.13262285292, 21.50263026822358, -0.03344538412056863, -0.06456210720352829, 0.3943447499535977, 0.5358478897251189,
-      -0.8607350478880107 };
+    {15727.8404745739,74.82920403592288,-0.09481475441716612,0.2081478221807629,0.06612515454180534,0.7414646069519222,-0.4368525084573776};
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////     CREATE ENVIRONMENT                   //////////////////////////////////////////////////////
@@ -201,6 +200,8 @@ int main( )
     // Create solar system bodies
     std::vector< std::string > bodiesToCreate;
     bodiesToCreate.push_back( "Moon" );
+    bodiesToCreate.push_back( "Earth" );
+
     std::map< std::string, std::shared_ptr< BodySettings > > bodySettings =
             getDefaultBodySettings( bodiesToCreate );
     NamedBodyMap bodyMap = createBodies( bodySettings );
@@ -236,11 +237,17 @@ int main( )
             std::make_shared< FromFunctionThrustMagnitudeSettings >(
                 thrustMagnitudeFunction, [ = ]( const double ){ return constantSpecificImpulse; } );
 
+    // Test influence Earth
+    for (int i = 1; i <3; i++){
     // Define acceleration settings
     SelectedAccelerationMap accelerationMap;
     std::map< std::string, std::vector< std::shared_ptr< AccelerationSettings > > > accelerationsOfVehicle;
     accelerationsOfVehicle[ "Moon" ].push_back( std::make_shared< AccelerationSettings >(
                                                     basic_astrodynamics::central_gravity ) );
+    if (i ==2 ){
+        accelerationsOfVehicle[ "Earth" ].push_back( std::make_shared< AccelerationSettings >(
+                                                    basic_astrodynamics::central_gravity ) );
+    }
     accelerationsOfVehicle[ "Vehicle" ].push_back( std::make_shared< ThrustAccelerationSettings >(
                                                        thrustDirectionGuidanceSettings, thrustMagnitudeSettings ) );
     accelerationMap[ "Vehicle" ] = accelerationsOfVehicle;
@@ -294,17 +301,19 @@ int main( )
 
     std::shared_ptr< DependentVariableSaveSettings > dependentVariablesToSave =
             std::make_shared< DependentVariableSaveSettings >( dependentVariablesList );
-
+    TranslationalPropagatorType propagatorType;
+    // ASSIGNMENT 2/3 STARTS HERE UNCOMMENT FOR USE --> FOR LOOP IS IMPLEMENTED
     // Define propagator type
-    TranslationalPropagatorType propagatorType = cowell;
-
-    // Define translational state propagation settings
-    std::shared_ptr< TranslationalStatePropagatorSettings< double > > translationalStatePropagatorSettings =
-            std::make_shared< TranslationalStatePropagatorSettings< double > >(
-                centralBodies, accelerationModelMap, bodiesToPropagate, systemInitialState,
-                terminationSettings, propagatorType );
-
-    // Define mass propagation settings
+//    for (int i = 1; i<3; i++){
+//        if (i == 1 ){
+        std::cout<< "cowell propagation" << std::endl;
+    propagatorType = cowell;
+//        }
+//        else if (i == 2){
+//        std::cout<< "encke propagation" << std::endl;
+//        propagatorType = encke;
+//        }
+        // Define mass propagation settings
     std::map< std::string, std::shared_ptr< basic_astrodynamics::MassRateModel > > massRateModels;
     massRateModels[ "Vehicle" ] = (
                 createMassRateModel( "Vehicle", std::make_shared< FromThrustMassModelSettings >( 1 ),
@@ -313,6 +322,11 @@ int main( )
             std::make_shared< MassPropagatorSettings< double > >(
                 std::vector< std::string >{ "Vehicle" }, massRateModels,
                 ( Eigen::Matrix< double, 1, 1 >( ) << vehicleMass ).finished( ), terminationSettings );
+    // Define translational state propagation settings
+    std::shared_ptr< TranslationalStatePropagatorSettings< double > > translationalStatePropagatorSettings =
+            std::make_shared< TranslationalStatePropagatorSettings< double > >(
+                centralBodies, accelerationModelMap, bodiesToPropagate, systemInitialState,
+                terminationSettings, propagatorType );
 
     // Define full propagation settings
     std::vector< std::shared_ptr< SingleArcPropagatorSettings< double > > > propagatorSettingsVector =
@@ -321,27 +335,315 @@ int main( )
             std::make_shared< MultiTypePropagatorSettings< double > >(
                 propagatorSettingsVector, terminationSettings, dependentVariablesToSave );
 
-    // Define integration settings
-    std::shared_ptr< IntegratorSettings< > > integratorSettings =
-            std::make_shared< IntegratorSettings< > >( rungeKutta4, initialTime, 1.0 );
+    // Define time to compare to constant step size 1.0 for propagation/integration schemes
+    std::cout << "RK4 integration method comparitor"<< std::endl;
+    std::shared_ptr< IntegratorSettings< > > integratorSettingsComparitor;
+    double fixedStepSize = 1.0;
+    integratorSettingsComparitor =
+        std::make_shared< IntegratorSettings < > >
+            ( rungeKutta4, initialTime, fixedStepSize );
+    SingleArcDynamicsSimulator< > dynamicsSimulatorComparitor(
+                bodyMap, integratorSettingsComparitor, propagatorSettings );
+    std::map< double, Eigen::VectorXd > propagatedStateHistoryComparitor = dynamicsSimulatorComparitor.getEquationsOfMotionNumericalSolution( );
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///////////////////////             PROPAGATE ORBIT            ////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    std::shared_ptr< IntegratorSettings< > > integratorSettings;
+    double relativeErrorToleranceRK87 = 1e-12;
+    double absoluteErrorToleranceRK87 = 1e-12;
+    double initialTimeStep = 1.0;
+    double minimumStepSize = 0.000001;
+    double maximumStepSize = 5;
+    integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+              rungeKuttaVariableStepSize , initialTime,  initialTimeStep
+              , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKutta87DormandPrince
+              , minimumStepSize, maximumStepSize, absoluteErrorToleranceRK87, relativeErrorToleranceRK87);
 
-
-    // Create simulation object and propagate dynamics.
     SingleArcDynamicsSimulator< > dynamicsSimulator(
                 bodyMap, integratorSettings, propagatorSettings );
-
     std::map< double, Eigen::VectorXd > propagatedStateHistory = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
     std::map< double, Eigen::VectorXd > dependentVariableHistory = dynamicsSimulator.getDependentVariableHistory( );
 
-    input_output::writeDataMapToTextFile( propagatedStateHistory, "stateHistory.dat", outputPath );
-    input_output::writeDataMapToTextFile( dependentVariableHistory, "dependentVariables.dat", outputPath );
-    input_output::writeMatrixToFile( utilities::convertStlVectorToEigenVector(
-                                         thrustParameters ), "thrustParameters.dat", 16, outputPath );
+    // Define interpolator settings
+    std::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
+            std::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 );
+    // Create interpolation of integration/propagator
+    std::map< double, Eigen::VectorXd > InterpolatedResult;
+    std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolator =
+            interpolators::createOneDimensionalInterpolator(
+                propagatedStateHistory, interpolatorSettings );
+    for( auto stateIterator : propagatedStateHistoryComparitor )
+    {
+        double currentTime = stateIterator.first;
+        InterpolatedResult[ currentTime ] =
+                comparitorInterpolator->interpolate( currentTime );
+    }
+    input_output::writeDataMapToTextFile( InterpolatedResult, "interpolatedStateHistory" + std::to_string(i) + ".dat", outputPath );
+    }
+//        // Integrator settings
+//        std::shared_ptr< IntegratorSettings< > > integratorSettings;
+//        double initialTimeStep = 1.0;
+//        double minimumStepSize = 0.000001;
+//        double maximumStepSize = 5;
+//        std::string behindText;
+//        for (int j = 1; j<3; j++){
+//            if (j == 1){
+//                double relativeErrorToleranceRK45 = 1e-12;
+//                double absoluteErrorToleranceRK45 = 1e-12;
+//                behindText = "-12";
+//                integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//                          rungeKuttaVariableStepSize , initialTime,  initialTimeStep
+//                          , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg45
+//                          , minimumStepSize, maximumStepSize, relativeErrorToleranceRK45, absoluteErrorToleranceRK45);
 
-    // The exit code EXIT_SUCCESS indicates that the program was successfully executed.
-    return EXIT_SUCCESS;
+//            }
+//            else if (j == 2){
+//                double relativeErrorToleranceRK87 = 1e-12;
+//                double absoluteErrorToleranceRK87 = 1e-12;
+//                behindText = "-12";
+//                integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//                          rungeKuttaVariableStepSize , initialTime,  initialTimeStep
+//                          , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKutta87DormandPrince
+//                          , minimumStepSize, maximumStepSize, absoluteErrorToleranceRK87, relativeErrorToleranceRK87);
+
+//            }
+//            // Compute dynamics of integrator/propagator combinations
+//            SingleArcDynamicsSimulator< > dynamicsSimulator(
+//                        bodyMap, integratorSettings, propagatorSettings );
+//            std::map< double, Eigen::VectorXd > propagatedStateHistory = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
+//            std::map< double, Eigen::VectorXd > dependentVariableHistory = dynamicsSimulator.getDependentVariableHistory( );
+//            std::map< double, unsigned int > integratorData = dynamicsSimulator.getCumulativeNumberOfFunctionEvaluations();
+
+
+//            // Define interpolator settings
+//            std::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
+//                    std::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 );
+//            // Create interpolation of integration/propagator
+//            std::map< double, Eigen::VectorXd > InterpolatedResult;
+//            std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolator =
+//                    interpolators::createOneDimensionalInterpolator(
+//                        propagatedStateHistory, interpolatorSettings );
+//            for( auto stateIterator : propagatedStateHistoryComparitor )
+//            {
+//                double currentTime = stateIterator.first;
+//                InterpolatedResult[ currentTime ] =
+//                        comparitorInterpolator->interpolate( currentTime );
+//            }
+//        input_output::writeDataMapToTextFile( InterpolatedResult, "interpolatedStateHistory" + std::to_string(i) + std::to_string(j) + "_" + behindText+ ".dat", outputPath );
+//        input_output::writeDataMapToTextFile( integratorData, "integratorData" + std::to_string(i) + std::to_string(j) + "_" + behindText+ ".dat", outputPath );
+
+//        }
+//    }
+
+
+//        else if (i == 3){
+//        std::cout<< "gauss propagation" << std::endl;
+//        propagatorType = gauss_keplerian;
+//        }
+//        else if (i == 4){
+//        std::cout<< "quaternions propagation" << std::endl;
+//        propagatorType = unified_state_model_quaternions;
+//        }
+//        else if (i == 5){
+//        std::cout<< "rodrigues parameters propagation" << std::endl;
+//        propagatorType = unified_state_model_modified_rodrigues_parameters;
+//        }
+//        else if (i == 6){
+//        std::cout<< "exponential_map propagation" << std::endl;
+//        propagatorType = unified_state_model_exponential_map;
+//        }
+    // KEEP FOR ASSIGNMENT 1
+
+
+
+////     STOP KEEPING FOR ASSIGNMENT 2
+//    std::cout << "RK4 integration method"<< std::endl;
+//    std::shared_ptr< IntegratorSettings< > > integratorSettings;
+//    double fixedStepSize = 1.0;
+//    integratorSettings =
+//        std::make_shared< IntegratorSettings< > >
+//            ( rungeKutta4, initialTime, fixedStepSize );
+
+
+//        input_output::writeDataMapToTextFile( interpolatedBenchmarkResult, "interpolatedStateHistory" + std::to_string(i) + "_" + behindText+ ".dat", outputPath );
+//        input_output::writeDataMapToTextFile( integratorData, "integratorData" + std::to_string(i) + "_" + behindText + ".dat", outputPath );
+
+
+
+        // HERE STARTS ASSIGNMENT 1 UNCOMMENT FOR USE --> FOR LOOP IS IMPLEMENTED
+//        // Define interpolator settings
+//        std::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
+//                std::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 );
+
+//    // Create benchmark results with RK78 10^-14 - 1 second initial timestep
+//    std::cout << "Creating benchmark data RK78"<< std::endl;
+//    std::shared_ptr< IntegratorSettings< > > integratorSettingsBenchMarkRK78;
+//    integratorSettingsBenchMarkRK78 = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//              rungeKuttaVariableStepSize , initialTime,  1
+//              , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78
+//              , 0.000001, 5, 1e-12, 1e-12);
+//    SingleArcDynamicsSimulator< > dynamicsSimulatorRK78(
+//                bodyMap, integratorSettingsBenchMarkRK78, propagatorSettings );
+//    std::map< double, Eigen::VectorXd > propagatedHistoryBenchMark78 = dynamicsSimulatorRK78.getEquationsOfMotionNumericalSolution( );
+//    input_output::writeDataMapToTextFile( propagatedHistoryBenchMark78, "stateHistoryBenchMark78.dat", outputPath );
+
+    // Benchmark creation, selected through comparison
+//    std::cout << "Creating benchmark data RK87"<< std::endl;
+//    std::shared_ptr< IntegratorSettings< > > integratorSettingsBenchMarkRK87;
+//    integratorSettingsBenchMarkRK87 = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//              rungeKuttaVariableStepSize , initialTime,  1
+//              , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKutta87DormandPrince
+//              , 0.000001, 5, 1e-12, 1e-12);
+//    SingleArcDynamicsSimulator< > dynamicsSimulatorRK87(
+//                bodyMap, integratorSettingsBenchMarkRK87, propagatorSettings );
+//    std::map< double, Eigen::VectorXd > propagatedHistoryBenchMark = dynamicsSimulatorRK87.getEquationsOfMotionNumericalSolution( );
+//    input_output::writeDataMapToTextFile( propagatedHistoryBenchMark, "stateHistoryBenchMark87.dat", outputPath );
+
+//        // Define interpolator settings
+//        std::map< double, Eigen::VectorXd > interpolatedBenchmarkResult;
+//        std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > benchmarkInterpolator =
+//                interpolators::createOneDimensionalInterpolator(
+//                    propagatedHistoryBenchMark78, interpolatorSettings );
+
+//        for( auto stateIterator : propagatedHistoryBenchMark87 )
+//        {
+//            double currentTime = stateIterator.first;
+//            interpolatedBenchmarkResult[ currentTime ] =
+//                    benchmarkInterpolator->interpolate( currentTime );
+//        }
+
+//        input_output::writeDataMapToTextFile( interpolatedBenchmarkResult, "interpolatedPropagatedHistoryBenchMark78.dat", outputPath );
+
+//    // Define integration settings in for loop (8 integration methods)
+//    // For all
+//    const double fixedStepSize = 10.0;
+//    double initialTimeStep = 1.0;
+//    double minimumStepSize = 0.000001;
+//    double maximumStepSize = 5;
+//    double relativeErrorTolerance = 1e-12;
+//    double absoluteErrorTolerance = 1e-12;
+//    std::string behindText;
+//    // For ADM
+//    double minimumOrder = 6;
+//    double maximumOrder = 11;
+//    std::shared_ptr< IntegratorSettings< > > integratorSettings;
+//    for (int i = 5; i < 7; i++) {
+//        behindText = "10";
+//        if (i == 1){
+//            std::cout << "Euler integration method"<< std::endl;
+//            integratorSettings =
+//                std::make_shared< IntegratorSettings< > >
+//                    ( euler, initialTime, fixedStepSize );
+//            behindText = std::to_string(fixedStepSize);
+//       }
+//        else if (i == 2){
+//            std::cout << "RK4 integration method"<< std::endl;
+//            integratorSettings =
+//                std::make_shared< IntegratorSettings< > >
+//                    ( rungeKutta4, initialTime, fixedStepSize );
+//            behindText = std::to_string(fixedStepSize);
+//        }
+//        else if (i > 2 && i < 7){
+//            if (i == 3){
+//                std::cout << "RK45 integration method"<< std::endl;
+//                double relativeErrorToleranceRK45 = 1e-12;
+//                double absoluteErrorToleranceRK45 = 1e-12;
+//                behindText = "12";
+
+//                integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//                          rungeKuttaVariableStepSize , initialTime,  initialTimeStep
+//                          , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg45
+//                          , minimumStepSize, maximumStepSize, relativeErrorToleranceRK45, absoluteErrorToleranceRK45);
+//        }
+//            if (i == 4){
+//                std::cout << "RK56 integration method"<< std::endl;
+//                integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//                          rungeKuttaVariableStepSize , initialTime,  initialTimeStep
+//                          , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg56
+//                          , minimumStepSize, maximumStepSize, relativeErrorTolerance, absoluteErrorTolerance);
+//        }
+//            if (i == 5){
+//                std::cout << "RK78 integration method"<< std::endl;
+//                integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//                          rungeKuttaVariableStepSize , initialTime,  initialTimeStep
+//                          , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKuttaFehlberg78
+//                          , minimumStepSize, maximumStepSize, relativeErrorTolerance, absoluteErrorTolerance);
+//        }
+//            if (i == 6) {
+//                std::cout << "RK8(7) integration method"<< std::endl;
+//                integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
+//                          rungeKuttaVariableStepSize , initialTime,  initialTimeStep
+//                          , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKutta87DormandPrince
+//                          , minimumStepSize, maximumStepSize, relativeErrorTolerance, absoluteErrorTolerance);
+//        }
+//        }
+
+//        else if (i == 7){
+//            std::cout << "BulirschStoer Extrapolation method"<< std::endl;
+//            integratorSettings =
+//                std::make_shared< BulirschStoerIntegratorSettings< > >
+//                    (initialTime,
+//                     initialTimeStep,
+//                     bulirsch_stoer_sequence,
+//                     6,
+//                     minimumStepSize,
+//                     maximumStepSize,
+//                     relativeErrorTolerance,
+//                     absoluteErrorTolerance );
+//        }
+//        else if (i == 8){
+//         std::cout << "ADM integration method"<< std::endl;
+//         double relativeErrorToleranceADM = 1e-8;
+//         double absoluteErrorToleranceADM = 1e-8;
+//         behindText = "8";
+//         minimumStepSize = 0.000001;
+//         integratorSettings =
+//             std::make_shared< AdamsBashforthMoultonSettings< > >
+//                     ( initialTime,
+//                       initialTimeStep,
+//                       minimumStepSize,
+//                       maximumStepSize,
+//                       relativeErrorToleranceADM,
+//                       absoluteErrorToleranceADM,
+//                       minimumOrder,
+//                       maximumOrder );
+
+//        }
+//        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//        ///////////////////////             PROPAGATE ORBIT            ////////////////////////////////////////////////////////
+//        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//        // Create simulation object and propagate dynamics.
+//        SingleArcDynamicsSimulator< > dynamicsSimulator(
+//                    bodyMap, integratorSettings, propagatorSettings );
+
+//        std::map< double, Eigen::VectorXd > propagatedStateHistory = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
+//        std::map< double, Eigen::VectorXd > dependentVariableHistory = dynamicsSimulator.getDependentVariableHistory( );
+//        std::map< double, unsigned int > integratorData = dynamicsSimulator.getCumulativeNumberOfFunctionEvaluations();
+
+//        // Define interpolator settings
+//        std::map< double, Eigen::VectorXd > interpolatedBenchmarkResult;
+//        std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > benchmarkInterpolator =
+//                interpolators::createOneDimensionalInterpolator(
+//                    propagatedStateHistory, interpolatorSettings );
+
+//        for( auto stateIterator : propagatedHistoryBenchMark )
+//        {
+//            double currentTime = stateIterator.first;
+//            interpolatedBenchmarkResult[ currentTime ] =
+//                    benchmarkInterpolator->interpolate( currentTime );
+//        }
+
+//        input_output::writeDataMapToTextFile( interpolatedBenchmarkResult, "interpolatedStateHistory" + std::to_string(i) + "_" + behindText+ ".dat", outputPath );
+//        input_output::writeDataMapToTextFile( integratorData, "integratorData" + std::to_string(i) + "_" + behindText + ".dat", outputPath );
+
+//        input_output::writeDataMapToTextFile( propagatedStateHistory, "stateHistory" + std::to_string(i) + "_" + behindText+ ".dat", outputPath );
+
+//        input_output::writeDataMapToTextFile( dependentVariableHistory, "dependentVariables"+ std::to_string(i) + "_" + behindText + ".dat", outputPath );
+////        input_output::writeMatrixToFile( utilities::convertStlVectorToEigenVector(
+////                                             thrustParameters ), "thrustParameters"+ std::to_string(i) + ".dat", 16, outputPath );
+//    }
+        // The exit code EXIT_SUCCESS indicates that the program was successfully executed.
+        return EXIT_SUCCESS;
+        std::cout << "Propagation was success." << std::endl;
 }
+
