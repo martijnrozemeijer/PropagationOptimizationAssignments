@@ -15,6 +15,7 @@
 
 #include "../applicationOutput.h"
 
+using namespace tudat;
 using namespace tudat::ephemerides;
 using namespace tudat::interpolators;
 using namespace tudat::numerical_integrators;
@@ -28,7 +29,7 @@ using namespace tudat::basic_mathematics;
 using namespace tudat::input_output;
 using namespace tudat::mathematical_constants;
 using namespace tudat::reference_frames;
-using namespace tudat;
+using namespace tudat::estimatable_parameters;
 
 /*!
  *  Class to compute the thrust direction and magnitude for the lunar ascent vehicle. The current inputs set a
@@ -155,6 +156,11 @@ int main( )
     // Load Spice kernels.
     spice_interface::loadStandardSpiceKernels( );
 
+//    spice_interface::loadSpiceKernelInTudat( input_output::getSpiceKernelPath( ) + "moon_pa_de421_1900-2050.bpc" );
+//    spice_interface::loadSpiceKernelInTudat( input_output::getSpiceKernelPath( ) + "moon_080317.tf" );
+//    spice_interface::loadSpiceKernelInTudat( input_output::getSpiceKernelPath( ) + "moon_assoc_pa.tf" );
+
+
     std::string outputPath = tudat_applications::getOutputPath( "LunarAscent" );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,9 +207,52 @@ int main( )
     std::vector< std::string > bodiesToCreate;
     bodiesToCreate.push_back( "Moon" );
     bodiesToCreate.push_back( "Earth" );
-
     std::map< std::string, std::shared_ptr< BodySettings > > bodySettings =
-            getDefaultBodySettings( bodiesToCreate );
+                    getDefaultBodySettings( bodiesToCreate, -600.0, 950.0 );
+
+//    std::string moonFrame;
+//    for (unsigned int rotationModelCase = 0; rotationModelCase <2; rotationModelCase++ )
+//    if( rotationModelCase == 0 )
+//    {
+//        moonFrame = "IAU_Moon_Simplified";
+//    }
+//    else if( rotationModelCase == 1 )
+//    {
+//        moonFrame = "IAU_Moon";
+//    }
+//    if( rotationModelCase == 2 )
+//    {
+//        moonFrame = "MOON_ME";
+//    }
+//    else if( rotationModelCase == 2 )
+//    {
+//        moonFrame = "MOON_PA";
+//    }
+
+//    if( rotationModelCase == 0 )
+//    {
+//        bodySettings[ "Moon" ]->rotationModelSettings = std::make_shared< SimpleRotationModelSettings >(
+//                    "ECLIPJ2000", moonFrame,
+//                    spice_interface::computeRotationQuaternionBetweenFrames(
+//                        "ECLIPJ2000", "IAU_Moon", initialTime ),
+//                        initialTime, spice_interface::getAngularVelocityVectorOfFrameInOriginalFrame(
+//                            "ECLIPJ2000", "IAU_Moon", initialTime ).norm( ) );
+//    }
+//    else
+//    {
+
+//        bodySettings[ "Moon" ]->rotationModelSettings = std::make_shared< RotationModelSettings >(
+//                    spice_rotation_model, "ECLIPJ2000", moonFrame );
+
+//    }
+//    bodySettings[ "Earth" ]->rotationModelSettings = std::make_shared< RotationModelSettings >(
+//                            spice_rotation_model, "ECLIPJ2000", moonFrame );
+
+//    bodySettings[ "Moon" ]->ephemerisSettings->resetFrameOrientation( "ECLIPJ2000" );
+//    bodySettings[ "Earth" ]->ephemerisSettings->resetFrameOrientation( "ECLIPJ2000" );
+
+//    std::dynamic_pointer_cast< SphericalHarmonicsGravityFieldSettings >(
+//                bodySettings[ "Moon" ]->gravityFieldSettings )->resetAssociatedReferenceFrame( moonFrame );
     NamedBodyMap bodyMap = createBodies( bodySettings );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -214,9 +263,23 @@ int main( )
     bodyMap[ "Vehicle" ] = std::make_shared< simulation_setup::Body >( );
     bodyMap[ "Vehicle" ]->setConstantBodyMass( vehicleMass );
 
-    // Finalize body creation.
-    setGlobalFrameBodyEphemerides( bodyMap, "Moon", "ECLIPJ2000" );
+//    double referenceAreaRadiation = 15.0;
+//    double radiationPressureCoefficient = 0.01;
+//    std::vector< std::string > occultingBodies;
+//    occultingBodies.push_back( "Moon" );
+//    std::shared_ptr< RadiationPressureInterfaceSettings > vehicleRadiationPressureSettings =
+//            std::make_shared< CannonBallRadiationPressureInterfaceSettings >(
+//                "Sun", referenceAreaRadiation, radiationPressureCoefficient, occultingBodies );
 
+    // Create and set radiation pressure settings
+//    bodyMap[ "Vehicle" ]->setRadiationPressureInterface(
+//                "Sun", createRadiationPressureInterface(
+//                    vehicleRadiationPressureSettings, "Vehicle", bodyMap ) );
+
+    // Finalize body creation.
+
+
+    setGlobalFrameBodyEphemerides( bodyMap, "Moon", "ECLIPJ2000" );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////             CREATE ACCELERATIONS            ///////////////////////////////////////////////////
@@ -237,21 +300,52 @@ int main( )
             std::make_shared< FromFunctionThrustMagnitudeSettings >(
                 thrustMagnitudeFunction, [ = ]( const double ){ return constantSpecificImpulse; } );
 
-    // Test influence Earth
-    for (int i = 1; i <3; i++){
+    // Vary acceleration settings
+//    for (int i = 1; i <8; i++){
     // Define acceleration settings
     SelectedAccelerationMap accelerationMap;
     std::map< std::string, std::vector< std::shared_ptr< AccelerationSettings > > > accelerationsOfVehicle;
-    accelerationsOfVehicle[ "Moon" ].push_back( std::make_shared< AccelerationSettings >(
-                                                    basic_astrodynamics::central_gravity ) );
-    if (i ==2 ){
-        accelerationsOfVehicle[ "Earth" ].push_back( std::make_shared< AccelerationSettings >(
-                                                    basic_astrodynamics::central_gravity ) );
-    }
     accelerationsOfVehicle[ "Vehicle" ].push_back( std::make_shared< ThrustAccelerationSettings >(
                                                        thrustDirectionGuidanceSettings, thrustMagnitudeSettings ) );
-    accelerationMap[ "Vehicle" ] = accelerationsOfVehicle;
+    accelerationsOfVehicle[ "Moon" ].push_back( std::make_shared< SphericalHarmonicAccelerationSettings >( 2, 2 )  );
+    accelerationsOfVehicle[ "Earth" ].push_back( std::make_shared< AccelerationSettings >(
+                                                        basic_astrodynamics::central_gravity ) );
 
+//    DECOMMENT FOR ASSIGNMENT 2,1
+//    //Create points mass for first propagation
+//    if (i >0 && i < 4){
+//        accelerationsOfVehicle[ "Moon" ].push_back( std::make_shared< AccelerationSettings >(
+//                                                        basic_astrodynamics::central_gravity ) );
+//    }
+//    //Include Earth as point mass
+//    if (i > 1 && i < 5){
+//        accelerationsOfVehicle[ "Earth" ].push_back( std::make_shared< AccelerationSettings >(
+//                                                    basic_astrodynamics::central_gravity ) );
+//     }
+//    //Include Sun as point mass
+//    if ( i > 2 ){
+//        accelerationsOfVehicle[ "Sun" ].push_back( std::make_shared< AccelerationSettings >(
+//                                                    basic_astrodynamics::central_gravity ) );
+//    }
+//    //Include spherical harmonics for Moon
+//    if (i == 4 ){
+//        accelerationsOfVehicle[ "Moon" ].push_back( std::make_shared< SphericalHarmonicAccelerationSettings >( 2, 2 )  );
+//     }
+//    //Include spherical harmonics for Moon
+//    if (i > 4 ){
+//        accelerationsOfVehicle[ "Moon" ].push_back( std::make_shared< SphericalHarmonicAccelerationSettings >( 5, 5 )  );
+//     }
+
+//    //Include cannon radiation pressure from Sun
+//    if (i > 5){
+//        accelerationsOfVehicle[ "Sun" ].push_back( std::make_shared< AccelerationSettings >(
+//                                                       basic_astrodynamics::cannon_ball_radiation_pressure ) );
+//    }
+//    if (i > 6){
+//        accelerationsOfVehicle[ "Earth" ].push_back( std::make_shared< SphericalHarmonicAccelerationSettings >( 2, 2 )  );
+
+//    }
+    accelerationMap[ "Vehicle" ] = accelerationsOfVehicle;
 
     // Define propagator settings variables.
     std::vector< std::string > bodiesToPropagate;
@@ -302,18 +396,8 @@ int main( )
     std::shared_ptr< DependentVariableSaveSettings > dependentVariablesToSave =
             std::make_shared< DependentVariableSaveSettings >( dependentVariablesList );
     TranslationalPropagatorType propagatorType;
-    // ASSIGNMENT 2/3 STARTS HERE UNCOMMENT FOR USE --> FOR LOOP IS IMPLEMENTED
-    // Define propagator type
-//    for (int i = 1; i<3; i++){
-//        if (i == 1 ){
-        std::cout<< "cowell propagation" << std::endl;
     propagatorType = cowell;
-//        }
-//        else if (i == 2){
-//        std::cout<< "encke propagation" << std::endl;
-//        propagatorType = encke;
-//        }
-        // Define mass propagation settings
+
     std::map< std::string, std::shared_ptr< basic_astrodynamics::MassRateModel > > massRateModels;
     massRateModels[ "Vehicle" ] = (
                 createMassRateModel( "Vehicle", std::make_shared< FromThrustMassModelSettings >( 1 ),
@@ -335,49 +419,94 @@ int main( )
             std::make_shared< MultiTypePropagatorSettings< double > >(
                 propagatorSettingsVector, terminationSettings, dependentVariablesToSave );
 
-    // Define time to compare to constant step size 1.0 for propagation/integration schemes
-    std::cout << "RK4 integration method comparitor"<< std::endl;
-    std::shared_ptr< IntegratorSettings< > > integratorSettingsComparitor;
-    double fixedStepSize = 1.0;
-    integratorSettingsComparitor =
-        std::make_shared< IntegratorSettings < > >
-            ( rungeKutta4, initialTime, fixedStepSize );
-    SingleArcDynamicsSimulator< > dynamicsSimulatorComparitor(
-                bodyMap, integratorSettingsComparitor, propagatorSettings );
-    std::map< double, Eigen::VectorXd > propagatedStateHistoryComparitor = dynamicsSimulatorComparitor.getEquationsOfMotionNumericalSolution( );
+    // Define time to compare to constant step size 5.0 for propagation/integration schemes
+//    std::cout << "Use RK4 Integrator to get 5 second step size"<< std::endl;
+//    std::shared_ptr< IntegratorSettings< > > integratorSettingsComparitor;
+//    double fixedStepSize = 5.0;
+//    integratorSettingsComparitor =
+//        std::make_shared< IntegratorSettings < > >
+//            ( rungeKutta4, initialTime, fixedStepSize );
+//    SingleArcDynamicsSimulator< > dynamicsSimulatorComparitor(
+//                bodyMap, integratorSettingsComparitor, propagatorSettings );
+//    std::map< double, Eigen::VectorXd > propagatedStateHistoryComparitor = dynamicsSimulatorComparitor.getEquationsOfMotionNumericalSolution( );
 
     std::shared_ptr< IntegratorSettings< > > integratorSettings;
     double relativeErrorToleranceRK87 = 1e-12;
     double absoluteErrorToleranceRK87 = 1e-12;
     double initialTimeStep = 1.0;
     double minimumStepSize = 0.000001;
-    double maximumStepSize = 5;
+    double maximumStepSize = 5.0;
     integratorSettings = std::make_shared< RungeKuttaVariableStepSizeSettings< > >(
               rungeKuttaVariableStepSize , initialTime,  initialTimeStep
               , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKutta87DormandPrince
               , minimumStepSize, maximumStepSize, absoluteErrorToleranceRK87, relativeErrorToleranceRK87);
 
-    SingleArcDynamicsSimulator< > dynamicsSimulator(
-                bodyMap, integratorSettings, propagatorSettings );
-    std::map< double, Eigen::VectorXd > propagatedStateHistory = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
-    std::map< double, Eigen::VectorXd > dependentVariableHistory = dynamicsSimulator.getDependentVariableHistory( );
+//    SingleArcDynamicsSimulator< > dynamicsSimulator(
+//                bodyMap, integratorSettings, propagatorSettings );
+//    std::map< double, Eigen::VectorXd > propagatedStateHistory = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
+//    std::map< double, Eigen::VectorXd > dependentVariableHistory = dynamicsSimulator.getDependentVariableHistory( );
+//    std::map< double, unsigned int > integratorData = dynamicsSimulator.getCumulativeNumberOfFunctionEvaluations();
 
-    // Define interpolator settings
-    std::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
-            std::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 );
-    // Create interpolation of integration/propagator
-    std::map< double, Eigen::VectorXd > InterpolatedResult;
-    std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolator =
-            interpolators::createOneDimensionalInterpolator(
-                propagatedStateHistory, interpolatorSettings );
-    for( auto stateIterator : propagatedStateHistoryComparitor )
-    {
-        double currentTime = stateIterator.first;
-        InterpolatedResult[ currentTime ] =
-                comparitorInterpolator->interpolate( currentTime );
-    }
-    input_output::writeDataMapToTextFile( InterpolatedResult, "interpolatedStateHistory" + std::to_string(i) + ".dat", outputPath );
-    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////    DEFINE PARAMETERS FOR WHICH SENSITIVITY IS TO BE COMPUTED   ////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Define list of parameters to estimate.
+    std::vector< std::shared_ptr< EstimatableParameterSettings > > parameterNames;
+    parameterNames.push_back( std::make_shared< InitialTranslationalStateEstimatableParameterSettings< double > >(
+                                  "Vehicle", systemInitialState, "Moon" ) );
+    parameterNames.push_back( std::make_shared< EstimatableParameterSettings >( "Earth", gravitational_parameter  ) );
+    parameterNames.push_back( std::make_shared< SphericalHarmonicEstimatableParameterSettings >(
+                                  2, 0, 2, 2, "Moon", spherical_harmonics_cosine_coefficient_block ) );
+    parameterNames.push_back( std::make_shared< SphericalHarmonicEstimatableParameterSettings >(
+                                  2, 0, 2, 2, "Moon", spherical_harmonics_sine_coefficient_block ) );
+
+    // Create parameters
+    std::shared_ptr< estimatable_parameters::EstimatableParameterSet< double > > parametersToEstimate =
+            createParametersToEstimate( parameterNames, bodyMap, accelerationModelMap);
+
+    // Print identifiers and indices of parameters to terminal.
+    printEstimatableParameterEntries( parametersToEstimate );
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////             PROPAGATE ORBIT AND VARIATIONAL EQUATIONS         /////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Create simulation object and propagate dynamics.
+    SingleArcVariationalEquationsSolver< > variationalEquationsSimulator(
+                bodyMap, integratorSettings, propagatorSettings, parametersToEstimate, true,
+                std::shared_ptr< IntegratorSettings< double > >( ) , false, true );
+
+    std::map< double, Eigen::VectorXd > nominalIntegrationResult =
+            variationalEquationsSimulator.getDynamicsSimulator( )->getEquationsOfMotionNumericalSolution( );
+    std::map< double, Eigen::MatrixXd > stateTransitionResult =
+            variationalEquationsSimulator.getNumericalVariationalEquationsSolution( ).at( 0 );
+    std::map< double, Eigen::MatrixXd > sensitivityResult =
+            variationalEquationsSimulator.getNumericalVariationalEquationsSolution( ).at( 1 );
+
+//    // Define interpolator settings
+//    std::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
+//            std::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 );
+//    // Create interpolation of integration/propagator
+//    std::map< double, Eigen::VectorXd > InterpolatedResult;
+//    std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolator =
+//            interpolators::createOneDimensionalInterpolator(
+//                propagatedStateHistory, interpolatorSettings );
+//    for( auto stateIterator : propagatedStateHistoryComparitor )
+//    {
+//        double currentTime = stateIterator.first;
+//        InterpolatedResult[ currentTime ] =
+//                comparitorInterpolator->interpolate( currentTime );
+//    }
+    input_output::writeDataMapToTextFile( nominalIntegrationResult, "integrationresult.dat", outputPath );
+    input_output::writeDataMapToTextFile( stateTransitionResult, "stateTransitionResult.dat", outputPath );
+    input_output::writeDataMapToTextFile( sensitivityResult, "sensitivityResult.dat", outputPath );
+
+//    input_output::writeDataMapToTextFile( dependentVariableHistory, "dependentVariables.dat", outputPath );
+//    input_output::writeDataMapToTextFile( integratorData, "integratorData.dat", outputPath );
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////             ANALYSE UNCERTANTIES IN MODELS/STATE              /////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 //        // Integrator settings
 //        std::shared_ptr< IntegratorSettings< > > integratorSettings;
 //        double initialTimeStep = 1.0;
