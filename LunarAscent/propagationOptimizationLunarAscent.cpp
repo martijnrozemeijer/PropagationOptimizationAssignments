@@ -29,6 +29,7 @@ using namespace tudat::basic_mathematics;
 using namespace tudat::input_output;
 using namespace tudat::mathematical_constants;
 using namespace tudat::reference_frames;
+using namespace tudat::gravitation;
 using namespace tudat::estimatable_parameters;
 
 /*!
@@ -357,6 +358,20 @@ int main( )
     basic_astrodynamics::AccelerationMap accelerationModelMap = createAccelerationModelsMap(
                 bodyMap, accelerationMap, bodiesToPropagate, centralBodies );
 
+    std::shared_ptr< SphericalHarmonicsGravityField > sphericalHarmonicsGravityField =
+        std::dynamic_pointer_cast< SphericalHarmonicsGravityField >( bodyMap.at( "Moon" ) );
+
+    //    Eigen::MatrixXd cosine_mat =  sphericalHarmonicsGravityField->getCosineCoefficients( );;
+    //    Eigen::MatrixXd sine_mat = ssphericalHarmonicsGravityField->getSineCoefficients( );;
+        double earthGravitationalParameter = bodyMap.at( "Earth" )->getGravityFieldModel( )->getGravitationalParameter( );
+        std::cout<< earthGravitationalParameter << std::endl;
+    //    std::cout << "cosine_mat" << std::endl;
+    //    std::cout << cosine_mat << std::endl;
+    //    std::cout << "sine_mat" << std::endl;
+    //    std::cout << sine_mat << std::endl;
+
+
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////             CREATE PROPAGATION SETTINGS            ////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -420,15 +435,15 @@ int main( )
                 propagatorSettingsVector, terminationSettings, dependentVariablesToSave );
 
     // Define time to compare to constant step size 5.0 for propagation/integration schemes
-//    std::cout << "Use RK4 Integrator to get 5 second step size"<< std::endl;
-//    std::shared_ptr< IntegratorSettings< > > integratorSettingsComparitor;
-//    double fixedStepSize = 5.0;
-//    integratorSettingsComparitor =
-//        std::make_shared< IntegratorSettings < > >
-//            ( rungeKutta4, initialTime, fixedStepSize );
-//    SingleArcDynamicsSimulator< > dynamicsSimulatorComparitor(
-//                bodyMap, integratorSettingsComparitor, propagatorSettings );
-//    std::map< double, Eigen::VectorXd > propagatedStateHistoryComparitor = dynamicsSimulatorComparitor.getEquationsOfMotionNumericalSolution( );
+    std::cout << "Use RK4 Integrator to get 5 second step size"<< std::endl;
+    std::shared_ptr< IntegratorSettings< > > integratorSettingsComparitor;
+    double fixedStepSize = 5.0;
+    integratorSettingsComparitor =
+        std::make_shared< IntegratorSettings < > >
+            ( rungeKutta4, initialTime, fixedStepSize );
+    SingleArcDynamicsSimulator< > dynamicsSimulatorComparitor(
+                bodyMap, integratorSettingsComparitor, propagatorSettings );
+    std::map< double, Eigen::VectorXd > propagatedStateHistoryComparitor = dynamicsSimulatorComparitor.getEquationsOfMotionNumericalSolution( );
 
     std::shared_ptr< IntegratorSettings< > > integratorSettings;
     double relativeErrorToleranceRK87 = 1e-12;
@@ -441,67 +456,29 @@ int main( )
               , numerical_integrators::RungeKuttaCoefficients::CoefficientSets::rungeKutta87DormandPrince
               , minimumStepSize, maximumStepSize, absoluteErrorToleranceRK87, relativeErrorToleranceRK87);
 
-//    SingleArcDynamicsSimulator< > dynamicsSimulator(
-//                bodyMap, integratorSettings, propagatorSettings );
-//    std::map< double, Eigen::VectorXd > propagatedStateHistory = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
-//    std::map< double, Eigen::VectorXd > dependentVariableHistory = dynamicsSimulator.getDependentVariableHistory( );
-//    std::map< double, unsigned int > integratorData = dynamicsSimulator.getCumulativeNumberOfFunctionEvaluations();
+    SingleArcDynamicsSimulator< > dynamicsSimulator(
+                bodyMap, integratorSettings, propagatorSettings );
+    std::map< double, Eigen::VectorXd > propagatedStateHistory = dynamicsSimulator.getEquationsOfMotionNumericalSolution( );
+    std::map< double, Eigen::VectorXd > dependentVariableHistory = dynamicsSimulator.getDependentVariableHistory( );
+    std::map< double, unsigned int > integratorData = dynamicsSimulator.getCumulativeNumberOfFunctionEvaluations();
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///////////////////////    DEFINE PARAMETERS FOR WHICH SENSITIVITY IS TO BE COMPUTED   ////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Define list of parameters to estimate.
-    std::vector< std::shared_ptr< EstimatableParameterSettings > > parameterNames;
-    parameterNames.push_back( std::make_shared< InitialTranslationalStateEstimatableParameterSettings< double > >(
-                                  "Vehicle", systemInitialState, "Moon" ) );
-    parameterNames.push_back( std::make_shared< EstimatableParameterSettings >( "Earth", gravitational_parameter  ) );
-    parameterNames.push_back( std::make_shared< SphericalHarmonicEstimatableParameterSettings >(
-                                  2, 0, 2, 2, "Moon", spherical_harmonics_cosine_coefficient_block ) );
-    parameterNames.push_back( std::make_shared< SphericalHarmonicEstimatableParameterSettings >(
-                                  2, 0, 2, 2, "Moon", spherical_harmonics_sine_coefficient_block ) );
-
-    // Create parameters
-    std::shared_ptr< estimatable_parameters::EstimatableParameterSet< double > > parametersToEstimate =
-            createParametersToEstimate( parameterNames, bodyMap, accelerationModelMap);
-
-    // Print identifiers and indices of parameters to terminal.
-    printEstimatableParameterEntries( parametersToEstimate );
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///////////////////////             PROPAGATE ORBIT AND VARIATIONAL EQUATIONS         /////////////////////////////////
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    // Create simulation object and propagate dynamics.
-    SingleArcVariationalEquationsSolver< > variationalEquationsSimulator(
-                bodyMap, integratorSettings, propagatorSettings, parametersToEstimate, true,
-                std::shared_ptr< IntegratorSettings< double > >( ) , false, true );
-
-    std::map< double, Eigen::VectorXd > nominalIntegrationResult =
-            variationalEquationsSimulator.getDynamicsSimulator( )->getEquationsOfMotionNumericalSolution( );
-    std::map< double, Eigen::MatrixXd > stateTransitionResult =
-            variationalEquationsSimulator.getNumericalVariationalEquationsSolution( ).at( 0 );
-    std::map< double, Eigen::MatrixXd > sensitivityResult =
-            variationalEquationsSimulator.getNumericalVariationalEquationsSolution( ).at( 1 );
-
-//    // Define interpolator settings
-//    std::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
-//            std::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 );
-//    // Create interpolation of integration/propagator
-//    std::map< double, Eigen::VectorXd > InterpolatedResult;
-//    std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolator =
-//            interpolators::createOneDimensionalInterpolator(
-//                propagatedStateHistory, interpolatorSettings );
-//    for( auto stateIterator : propagatedStateHistoryComparitor )
-//    {
-//        double currentTime = stateIterator.first;
-//        InterpolatedResult[ currentTime ] =
-//                comparitorInterpolator->interpolate( currentTime );
-//    }
-    input_output::writeDataMapToTextFile( nominalIntegrationResult, "integrationresult.dat", outputPath );
-    input_output::writeDataMapToTextFile( stateTransitionResult, "stateTransitionResult.dat", outputPath );
-    input_output::writeDataMapToTextFile( sensitivityResult, "sensitivityResult.dat", outputPath );
-
-//    input_output::writeDataMapToTextFile( dependentVariableHistory, "dependentVariables.dat", outputPath );
-//    input_output::writeDataMapToTextFile( integratorData, "integratorData.dat", outputPath );
+    // Define interpolator settings
+    std::shared_ptr< interpolators::InterpolatorSettings > interpolatorSettings =
+            std::make_shared< interpolators::LagrangeInterpolatorSettings >( 8 );
+    // Create interpolation of integration/propagator
+    std::map< double, Eigen::VectorXd > InterpolatedResult;
+    std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolator =
+            interpolators::createOneDimensionalInterpolator(
+                propagatedStateHistory, interpolatorSettings );
+    for( auto stateIterator : propagatedStateHistoryComparitor )
+    {
+        double currentTime = stateIterator.first;
+        InterpolatedResult[ currentTime ] =
+                comparitorInterpolator->interpolate( currentTime );
+    }
+    input_output::writeDataMapToTextFile( InterpolatedResult, "InterpolatedResult.dat", outputPath );
+    input_output::writeDataMapToTextFile( dependentVariableHistory, "dependentVariables.dat", outputPath );
+    input_output::writeDataMapToTextFile( integratorData, "integratorData.dat", outputPath );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////             ANALYSE UNCERTANTIES IN MODELS/STATE              /////////////////////////////////
