@@ -31,6 +31,8 @@ using namespace tudat::mathematical_constants;
 using namespace tudat::reference_frames;
 using namespace tudat::gravitation;
 using namespace tudat::estimatable_parameters;
+using namespace tudat::statistics;
+
 
 /*!
  *  Class to compute the thrust direction and magnitude for the lunar ascent vehicle. The current inputs set a
@@ -361,16 +363,14 @@ int main( )
     std::shared_ptr< SphericalHarmonicsGravityField > sphericalHarmonicsGravityField =
         std::dynamic_pointer_cast< SphericalHarmonicsGravityField >( bodyMap.at( "Moon" ) );
 
-    //    Eigen::MatrixXd cosine_mat =  sphericalHarmonicsGravityField->getCosineCoefficients( );;
-    //    Eigen::MatrixXd sine_mat = ssphericalHarmonicsGravityField->getSineCoefficients( );;
+        Eigen::MatrixXd cosine_mat =  sphericalHarmonicsGravityField->getCosineCoefficients( );;
+        Eigen::MatrixXd sine_mat = ssphericalHarmonicsGravityField->getSineCoefficients( );;
         double earthGravitationalParameter = bodyMap.at( "Earth" )->getGravityFieldModel( )->getGravitationalParameter( );
         std::cout<< earthGravitationalParameter << std::endl;
-    //    std::cout << "cosine_mat" << std::endl;
-    //    std::cout << cosine_mat << std::endl;
-    //    std::cout << "sine_mat" << std::endl;
-    //    std::cout << sine_mat << std::endl;
-
-
+        std::cout << "cosine_mat" << std::endl;
+        std::cout << cosine_mat << std::endl;
+        std::cout << "sine_mat" << std::endl;
+        std::cout << sine_mat << std::endl;
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////             CREATE PROPAGATION SETTINGS            ////////////////////////////////////////////
@@ -437,7 +437,7 @@ int main( )
     // Define time to compare to constant step size 5.0 for propagation/integration schemes
     std::cout << "Use RK4 Integrator to get 5 second step size"<< std::endl;
     std::shared_ptr< IntegratorSettings< > > integratorSettingsComparitor;
-    double fixedStepSize = 5.0;
+    double fixedStepSize = 1.0;
     integratorSettingsComparitor =
         std::make_shared< IntegratorSettings < > >
             ( rungeKutta4, initialTime, fixedStepSize );
@@ -481,8 +481,111 @@ int main( )
     input_output::writeDataMapToTextFile( integratorData, "integratorData.dat", outputPath );
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///////////////////////             ANALYSE UNCERTANTIES IN MODELS/STATE              /////////////////////////////////
+    ///////////////////////                 ANALYSE UNCERTANTIES IN MODELS                /////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////             ANALYSE UNCERTANTIES IN STATE                     /////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Define vector and matrices for comparison
+    double endComparing = 310.0 - fixedStepSize*10.0;
+    Eigen::VectorXd InterpolatedResultend = InterpolatedResult.at(endComparing);
+
+    std::function< double( ) > initialPositionErrorFunction;
+
+    std::map< double, Eigen::VectorXd > StateVariationStartR;
+    std::map< double, Eigen::VectorXd > StateVariationStartV;
+    std::map< double, Eigen::VectorXd > StateVariationEndR;
+    std::map< double, Eigen::VectorXd > StateVariationEndV;
+    Eigen::VectorXd systemInitialStateVariation = systemInitialState;
+
+    double errorMagnitudeR;
+    double errorMagnitudeV;
+    int monteCarloRun;
+    // for loop 1 states magninutes and errors, for loop2 --> error calculation
+    for (int simulationcase = 1; simulationcase < 3; simulationcase++){
+        for (monteCarloRun = 1; monteCarloRun < 101; monteCarloRun++){
+            // add variation to position
+            if (simulationcase == 1){
+                errorMagnitudeR = 60.0;
+                initialPositionErrorFunction = createBoostContinuousRandomVariableGeneratorFunction(
+                            normal_boost_distribution, { 0.0, errorMagnitudeR }, 0.0 );
+                systemInitialStateVariation( 0 ) = systemInitialStateVariation( 0 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 1 ) = systemInitialStateVariation( 1 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 2 ) = systemInitialStateVariation( 2 ) + initialPositionErrorFunction ();
+                StateVariationStartR.insert( std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
+                }
+            // add variation to velocity
+            else if (simulationcase == 2){
+                errorMagnitudeV = 1.0;
+                initialPositionErrorFunction = createBoostContinuousRandomVariableGeneratorFunction(
+                            normal_boost_distribution, { 0.0, errorMagnitudeV }, 0.0 );
+                systemInitialStateVariation( 3 ) = systemInitialStateVariation( 3 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 4 ) = systemInitialStateVariation( 4 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 5 ) = systemInitialStateVariation( 5 ) + initialPositionErrorFunction ();
+                StateVariationStartV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
+            }
+
+            // Define the translational state propagator settings for the state variation
+            std::shared_ptr< TranslationalStatePropagatorSettings< double > > translationalStatePropagatorSettingsStateVariation =
+                    std::make_shared< TranslationalStatePropagatorSettings< double > >(
+                        centralBodies, accelerationModelMap, bodiesToPropagate, systemInitialStateVariation,
+                        terminationSettings, propagatorType );
+
+            // Define full propagation settings for the variation of the state
+            std::vector< std::shared_ptr< SingleArcPropagatorSettings< double > > > propagatorSettingsVectorStateVariation =
+            { translationalStatePropagatorSettingsStateVariation, massPropagatorSettings };
+            std::shared_ptr< PropagatorSettings< double > > propagatorSettingsStateVariation =
+                    std::make_shared< MultiTypePropagatorSettings< double > >(
+                        propagatorSettingsVectorStateVariation, terminationSettings, dependentVariablesToSave );
+
+            // Perform propagation of history
+            SingleArcDynamicsSimulator< > dynamicsSimulatorVariation(
+                        bodyMap, integratorSettings, propagatorSettingsStateVariation );
+            std::map< double, Eigen::VectorXd > propagatedStateHistoryStateVariation = dynamicsSimulatorVariation.getEquationsOfMotionNumericalSolution( );
+
+
+            // Make sure that data is comparible
+            std::map< double, Eigen::VectorXd > InterpolatedResultStateVariation;
+            std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolatorStateVariation =
+                    interpolators::createOneDimensionalInterpolator(
+                        propagatedStateHistoryStateVariation, interpolatorSettings );
+            for( auto stateIterator : propagatedStateHistoryComparitor )
+            {
+                double currentTime = stateIterator.first;
+                InterpolatedResultStateVariation[ currentTime ] =
+                        comparitorInterpolatorStateVariation->interpolate( currentTime );
+            }
+            if (simulationcase == 1){
+                StateVariationEndR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
+            }
+            else if (simulationcase == 2){
+                StateVariationEndV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
+            }
+
+        }
+        if (simulationcase == 1){
+            StateVariationEndR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
+            StateVariationStartR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialState));
+            input_output::writeDataMapToTextFile( StateVariationStartR, "StateVariationStartR.dat", outputPath );
+            input_output::writeDataMapToTextFile( StateVariationEndR, "StateVariationEndR.dat", outputPath );
+        }
+        else if (simulationcase == 2){
+            StateVariationEndV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
+            StateVariationStartV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialState));
+            input_output::writeDataMapToTextFile( StateVariationStartV, "StateVariationStartV.dat", outputPath );
+            input_output::writeDataMapToTextFile( StateVariationEndV, "StateVariationEndV.dat", outputPath );
+        }
+
+    }
+//    if (3){ velocity+displacement;}
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////             ASSIGNMENT 1                                      /////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 //        // Integrator settings
 //        std::shared_ptr< IntegratorSettings< > > integratorSettings;
