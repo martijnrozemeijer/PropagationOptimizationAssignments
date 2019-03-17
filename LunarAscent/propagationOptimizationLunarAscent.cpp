@@ -258,66 +258,66 @@ int main( )
 //    std::dynamic_pointer_cast< SphericalHarmonicsGravityFieldSettings >(
 //                bodySettings[ "Moon" ]->gravityFieldSettings )->resetAssociatedReferenceFrame( moonFrame );
     NamedBodyMap bodyMap = createBodies( bodySettings );
-    Eigen::MatrixXi combinations(17,4);
-    combinations <<
-            -1,-1,-1,-1,
-            1,-1,-1,-1,
-            -1,1,-1,-1,
-            1,1,-1,-1,
-            -1,-1,1,-1,
-            1,-1,1,-1,
-            -1,1,1,-1,
-            1,1,1,-1,
-            -1,-1,-1,1,
-            1,-1,-1,1,
-            -1,1,-1,1,
-            1,1,-1,1,
-            -1,-1,1,1,
-            1,-1,1,1,
-            -1,1,1,1,
-            1,1,1,1,
-            0,0,0,0;
-    std::cout<< combinations << std::endl;
-    std::cout<< combinations.rows() << std::endl;
-    // Obtain Cosine matrix, Sine Matrix and Gravitational Parameter
-    std::shared_ptr< SphericalHarmonicsGravityField > sphericalHarmonicsGravityField =
-        std::dynamic_pointer_cast< SphericalHarmonicsGravityField >( bodyMap.at( "Moon" )->getGravityFieldModel( ) );
-    Eigen::MatrixXd cosine_mat =  sphericalHarmonicsGravityField->getCosineCoefficientsBlock(2,2);
-    Eigen::MatrixXd cosine_matOG =  sphericalHarmonicsGravityField->getCosineCoefficientsBlock(2,2);
-    double earthGravitationalParameter = bodyMap.at( "Earth" )->getGravityFieldModel( )->getGravitationalParameter( );
-    double earthGravitationalParameterVariation;
+//    Eigen::MatrixXi combinations(17,4);
+//    combinations <<
+//            -1,-1,-1,-1,
+//            1,-1,-1,-1,
+//            -1,1,-1,-1,
+//            1,1,-1,-1,
+//            -1,-1,1,-1,
+//            1,-1,1,-1,
+//            -1,1,1,-1,
+//            1,1,1,-1,
+//            -1,-1,-1,1,
+//            1,-1,-1,1,
+//            -1,1,-1,1,
+//            1,1,-1,1,
+//            -1,-1,1,1,
+//            1,-1,1,1,
+//            -1,1,1,1,
+//            1,1,1,1,
+//            0,0,0,0;
+//    std::cout<< combinations << std::endl;
+//    std::cout<< combinations.rows() << std::endl;
+//    // Obtain Cosine matrix, Sine Matrix and Gravitational Parameter
+//    std::shared_ptr< SphericalHarmonicsGravityField > sphericalHarmonicsGravityField =
+//        std::dynamic_pointer_cast< SphericalHarmonicsGravityField >( bodyMap.at( "Moon" )->getGravityFieldModel( ) );
+//    Eigen::MatrixXd cosine_mat =  sphericalHarmonicsGravityField->getCosineCoefficientsBlock(2,2);
+//    Eigen::MatrixXd cosine_matOG =  sphericalHarmonicsGravityField->getCosineCoefficientsBlock(2,2);
+//    double earthGravitationalParameter = bodyMap.at( "Earth" )->getGravityFieldModel( )->getGravitationalParameter( );
+//    double earthGravitationalParameterVariation;
 
-    for (int i=0; i<combinations.rows(); i++){
+//    for (int i=0; i<combinations.rows(); i++){
 
-    if( combinations(i,0) == 1 ){
-        cosine_mat(0,0) = cosine_mat(0,0) + 0.00044/4902.80031;
-    }
-    if( combinations(i,0) == -1 ){
-        cosine_mat(0,0) = cosine_mat(0,0) - 0.00044/4902.80031;
-    }
-    if( combinations(i,1) == 1 ){
-        cosine_mat(2,0) = (9.0880835E-5) + (1.4E-9);
-    }
-    if( combinations(i,1) == -1 ){
-        cosine_mat(2,0) = (9.0880835E-5) - (1.4E-9);
-    }
-    if( combinations(i,2) == 1 ){
-        cosine_mat(2,2) = (3.4673798E-5) + (1.7E-9);
-    }
-    if( combinations(i,2) == -1 ){
-        cosine_mat(2,2) = (3.4673798E-5) - (1.7E-9);
-    }
+//    if( combinations(i,0) == 1 ){
+//        cosine_mat(0,0) = cosine_mat(0,0) + 0.00044/4902.80031;
+//    }
+//    if( combinations(i,0) == -1 ){
+//        cosine_mat(0,0) = cosine_mat(0,0) - 0.00044/4902.80031;
+//    }
+//    if( combinations(i,1) == 1 ){
+//        cosine_mat(2,0) = (9.0880835E-5) + (1.4E-9);
+//    }
+//    if( combinations(i,1) == -1 ){
+//        cosine_mat(2,0) = (9.0880835E-5) - (1.4E-9);
+//    }
+//    if( combinations(i,2) == 1 ){
+//        cosine_mat(2,2) = (3.4673798E-5) + (1.7E-9);
+//    }
+//    if( combinations(i,2) == -1 ){
+//        cosine_mat(2,2) = (3.4673798E-5) - (1.7E-9);
+//    }
 //    if( combinations(i,3) == 1 ){
 //        earthGravitationalParameterVariation = earthGravitationalParameter + 8.0E5;
 //    }
 //    if( combinations(i,3) == -1 ){
 //        earthGravitationalParameterVariation = earthGravitationalParameter - 8.0E5;
 //    }
-    sphericalHarmonicsGravityField->setCosineCoefficients(cosine_mat);
-    bodyMap.at( "Earth" )->getGravityFieldModel( )->resetGravitationalParameter( earthGravitationalParameterVariation );
-    if(i == 16){
-       sphericalHarmonicsGravityField->setCosineCoefficients(cosine_matOG);
-    }
+//    sphericalHarmonicsGravityField->setCosineCoefficients(cosine_mat);
+//    bodyMap.at( "Earth" )->getGravityFieldModel( )->resetGravitationalParameter( earthGravitationalParameterVariation );
+//    if(i == 16){
+//       sphericalHarmonicsGravityField->setCosineCoefficients(cosine_matOG);
+//    }
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -543,10 +543,10 @@ int main( )
                 comparitorInterpolator->interpolate( currentTime );
     }
 
-    input_output::writeDataMapToTextFile( InterpolatedResult, "InterpolatedResult"+std::to_string(i)+".dat", outputPath );
-    input_output::writeDataMapToTextFile( dependentVariableHistory, "dependentVariables"+std::to_string(i)+".dat", outputPath );
-    input_output::writeDataMapToTextFile( integratorData, "integratorData"+std::to_string(i)+".dat", outputPath );
-    }
+    input_output::writeDataMapToTextFile( InterpolatedResult, "InterpolatedResult.dat", outputPath );
+    input_output::writeDataMapToTextFile( dependentVariableHistory, "dependentVariables.dat", outputPath );
+    input_output::writeDataMapToTextFile( integratorData, "integratorData.dat", outputPath );
+//    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////                 ANALYSE UNCERTANTIES IN MODELS                /////////////////////////////////
@@ -558,119 +558,119 @@ int main( )
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Define vector and matrices for comparison
-//    double endComparing = 310.0 - fixedStepSize*6.0;
-//    Eigen::VectorXd InterpolatedResultend = InterpolatedResult.at(endComparing);
+    double endComparing = 310.0 - fixedStepSize*20.0;
+    Eigen::VectorXd InterpolatedResultend = InterpolatedResult.at(endComparing);
 
-//    std::map< double, Eigen::VectorXd > StateVariationStartR;
-//    std::map< double, Eigen::VectorXd > StateVariationStartV;
-//    std::map< double, Eigen::VectorXd > StateVariationStartM;
-//    std::map< double, Eigen::VectorXd > StateVariationEndR;
-//    std::map< double, Eigen::VectorXd > StateVariationEndV;
-//    std::map< double, Eigen::VectorXd > StateVariationEndM;
+    std::map< double, Eigen::VectorXd > StateVariationStartR;
+    std::map< double, Eigen::VectorXd > StateVariationStartV;
+    std::map< double, Eigen::VectorXd > StateVariationStartM;
+    std::map< double, Eigen::VectorXd > StateVariationEndR;
+    std::map< double, Eigen::VectorXd > StateVariationEndV;
+    std::map< double, Eigen::VectorXd > StateVariationEndM;
 
-//    Eigen::VectorXd systemInitialStateTotal = propagatorSettings->getInitialStates();
-//    Eigen::VectorXd systemInitialStateVariation = systemInitialStateTotal;
-//    double errorMagnitude;
+    Eigen::VectorXd systemInitialStateTotal = propagatorSettings->getInitialStates();
+    Eigen::VectorXd systemInitialStateVariation = systemInitialStateTotal;
+    double errorMagnitude;
 
-//    int monteCarloRun;
-//    // for loop 1 states magninutes and errors, for loop2 --> error calculation
-//    for (int simulationcase = 1; simulationcase < 4; simulationcase++){
-//        if(simulationcase == 1){
-//            errorMagnitude = 60.0;
+    int monteCarloRun;
+    // for loop 1 states magninutes and errors, for loop2 --> error calculation
+    for (int simulationcase = 1; simulationcase < 4; simulationcase++){
+        if(simulationcase == 1){
+            errorMagnitude = 60.0;
 
-//        }
-//        else if(simulationcase == 2){
-//            errorMagnitude = 1.0;
+        }
+        else if(simulationcase == 2){
+            errorMagnitude = 1.0;
 
-//        }
-//        else if(simulationcase == 3){
-//            errorMagnitude = 20.0;
+        }
+        else if(simulationcase == 3){
+            errorMagnitude = 2.0;
 
-//        }
-//        std::function< double( ) > initialPositionErrorFunction = createBoostContinuousRandomVariableGeneratorFunction(
-//                    normal_boost_distribution, { 0.0, errorMagnitude }, 0.0 );
+        }
+        std::function< double( ) > initialPositionErrorFunction = createBoostContinuousRandomVariableGeneratorFunction(
+                    normal_boost_distribution, { 0.0, errorMagnitude }, 0.0 );
 
-//        // add variation to position
-//        for (monteCarloRun = 1; monteCarloRun < 50; monteCarloRun++){
-//            if (simulationcase == 1){
-//                systemInitialStateVariation( 0 ) = systemInitialStateTotal( 0 ) + initialPositionErrorFunction ();
-//                systemInitialStateVariation( 1 ) = systemInitialStateTotal( 1 ) + initialPositionErrorFunction ();
-//                systemInitialStateVariation( 2 ) = systemInitialStateTotal( 2 ) + initialPositionErrorFunction ();
-//                StateVariationStartR.insert( std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
-//                }
-//            // add variation to velocity
-//            else if (simulationcase == 2){
-//                systemInitialStateVariation( 3 ) = systemInitialStateTotal( 3 ) + initialPositionErrorFunction ();
-//                systemInitialStateVariation( 4 ) = systemInitialStateTotal( 4 ) + initialPositionErrorFunction ();
-//                systemInitialStateVariation( 5 ) = systemInitialStateTotal( 5 ) + initialPositionErrorFunction ();
-//                StateVariationStartV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
-//            }
+        // add variation to position
+        for (monteCarloRun = 1; monteCarloRun < 50; monteCarloRun++){
+            if (simulationcase == 1){
+                systemInitialStateVariation( 0 ) = systemInitialStateTotal( 0 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 1 ) = systemInitialStateTotal( 1 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 2 ) = systemInitialStateTotal( 2 ) + initialPositionErrorFunction ();
+                StateVariationStartR.insert( std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
+                }
+            // add variation to velocity
+            else if (simulationcase == 2){
+                systemInitialStateVariation( 3 ) = systemInitialStateTotal( 3 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 4 ) = systemInitialStateTotal( 4 ) + initialPositionErrorFunction ();
+                systemInitialStateVariation( 5 ) = systemInitialStateTotal( 5 ) + initialPositionErrorFunction ();
+                StateVariationStartV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
+            }
 
-//            else if (simulationcase == 3){
-//                systemInitialStateVariation( 6 ) = systemInitialStateTotal( 6 ) + initialPositionErrorFunction ();
-//                StateVariationStartM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
-//            }
+            else if (simulationcase == 3){
+                systemInitialStateVariation( 6 ) = systemInitialStateTotal( 6 ) + initialPositionErrorFunction ();
+                StateVariationStartM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateVariation)) ;
+            }
 
-//            // Define the translational state propagator settings for the state variation
-//            std::shared_ptr< TranslationalStatePropagatorSettings< double > > translationalStatePropagatorSettingsStateVariation =
-//                    std::make_shared< TranslationalStatePropagatorSettings< double > >(
-//                        centralBodies, accelerationModelMap, bodiesToPropagate, systemInitialStateVariation,
-//                        terminationSettings, propagatorType );
+            // Define the translational state propagator settings for the state variation
+            std::shared_ptr< TranslationalStatePropagatorSettings< double > > translationalStatePropagatorSettingsStateVariation =
+                    std::make_shared< TranslationalStatePropagatorSettings< double > >(
+                        centralBodies, accelerationModelMap, bodiesToPropagate, systemInitialStateVariation,
+                        terminationSettings, propagatorType );
 
-//            // Define full propagation settings for the variation of the state
-//            std::vector< std::shared_ptr< SingleArcPropagatorSettings< double > > > propagatorSettingsVectorStateVariation =
-//            { translationalStatePropagatorSettingsStateVariation, massPropagatorSettings };
-//            std::shared_ptr< PropagatorSettings< double > > propagatorSettingsStateVariation =
-//                    std::make_shared< MultiTypePropagatorSettings< double > >(
-//                        propagatorSettingsVectorStateVariation, terminationSettings, dependentVariablesToSave );
+            // Define full propagation settings for the variation of the state
+            std::vector< std::shared_ptr< SingleArcPropagatorSettings< double > > > propagatorSettingsVectorStateVariation =
+            { translationalStatePropagatorSettingsStateVariation, massPropagatorSettings };
+            std::shared_ptr< PropagatorSettings< double > > propagatorSettingsStateVariation =
+                    std::make_shared< MultiTypePropagatorSettings< double > >(
+                        propagatorSettingsVectorStateVariation, terminationSettings, dependentVariablesToSave );
 
-//            // Perform propagation of history
-//            SingleArcDynamicsSimulator< > dynamicsSimulatorVariation(
-//                        bodyMap, integratorSettings, propagatorSettingsStateVariation );
-//            std::map< double, Eigen::VectorXd > propagatedStateHistoryStateVariation = dynamicsSimulatorVariation.getEquationsOfMotionNumericalSolution( );
+            // Perform propagation of history
+            SingleArcDynamicsSimulator< > dynamicsSimulatorVariation(
+                        bodyMap, integratorSettings, propagatorSettingsStateVariation );
+            std::map< double, Eigen::VectorXd > propagatedStateHistoryStateVariation = dynamicsSimulatorVariation.getEquationsOfMotionNumericalSolution( );
 
-//            // Make sure that data is comparible
-//            std::map< double, Eigen::VectorXd > InterpolatedResultStateVariation;
-//            std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolatorStateVariation =
-//                    interpolators::createOneDimensionalInterpolator(
-//                        propagatedStateHistoryStateVariation, interpolatorSettings );
-//            for( auto stateIterator : propagatedStateHistoryComparitor )
-//            {
-//                double currentTime = stateIterator.first;
-//                InterpolatedResultStateVariation[ currentTime ] =
-//                        comparitorInterpolatorStateVariation->interpolate( currentTime );
-//            }
-//            if (simulationcase == 1){
-//                StateVariationEndR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
-//            }
-//            else if (simulationcase == 2){
-//                StateVariationEndV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
-//            }
-//            else if (simulationcase == 3){
-//                StateVariationEndM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
-//            }
+            // Make sure that data is comparible
+            std::map< double, Eigen::VectorXd > InterpolatedResultStateVariation;
+            std::shared_ptr< OneDimensionalInterpolator< double, Eigen::VectorXd > > comparitorInterpolatorStateVariation =
+                    interpolators::createOneDimensionalInterpolator(
+                        propagatedStateHistoryStateVariation, interpolatorSettings );
+            for( auto stateIterator : propagatedStateHistoryComparitor )
+            {
+                double currentTime = stateIterator.first;
+                InterpolatedResultStateVariation[ currentTime ] =
+                        comparitorInterpolatorStateVariation->interpolate( currentTime );
+            }
+            if (simulationcase == 1){
+                StateVariationEndR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
+            }
+            else if (simulationcase == 2){
+                StateVariationEndV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
+            }
+            else if (simulationcase == 3){
+                StateVariationEndM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultStateVariation.at(endComparing))) ;
+            }
 
-//        }
-//        if (simulationcase == 1){
-//            StateVariationEndR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
-//            StateVariationStartR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateTotal));
-//            input_output::writeDataMapToTextFile( StateVariationStartR, "StateVariationStartR.dat", outputPath );
-//            input_output::writeDataMapToTextFile( StateVariationEndR, "StateVariationEndR.dat", outputPath );
-//        }
-//        else if (simulationcase == 2){
-//            StateVariationEndV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
-//            StateVariationStartV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateTotal));
-//            input_output::writeDataMapToTextFile( StateVariationStartV, "StateVariationStartV.dat", outputPath );
-//            input_output::writeDataMapToTextFile( StateVariationEndV, "StateVariationEndV.dat", outputPath );
-//        }
-//        else if (simulationcase == 3){
-//            StateVariationEndM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
-//            StateVariationStartM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateTotal));
-//            input_output::writeDataMapToTextFile( StateVariationStartM, "StateVariationStartM.dat", outputPath );
-//            input_output::writeDataMapToTextFile( StateVariationEndM, "StateVariationEndM.dat", outputPath );
-//        }
+        }
+        if (simulationcase == 1){
+            StateVariationEndR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
+            StateVariationStartR.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateTotal));
+            input_output::writeDataMapToTextFile( StateVariationStartR, "StateVariationStartR.dat", outputPath );
+            input_output::writeDataMapToTextFile( StateVariationEndR, "StateVariationEndR.dat", outputPath );
+        }
+        else if (simulationcase == 2){
+            StateVariationEndV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
+            StateVariationStartV.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateTotal));
+            input_output::writeDataMapToTextFile( StateVariationStartV, "StateVariationStartV.dat", outputPath );
+            input_output::writeDataMapToTextFile( StateVariationEndV, "StateVariationEndV.dat", outputPath );
+        }
+        else if (simulationcase == 3){
+            StateVariationEndM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, InterpolatedResultend)) ;
+            StateVariationStartM.insert(std::pair<int ,Eigen::VectorXd>(monteCarloRun, systemInitialStateTotal));
+            input_output::writeDataMapToTextFile( StateVariationStartM, "StateVariationStartM.dat", outputPath );
+            input_output::writeDataMapToTextFile( StateVariationEndM, "StateVariationEndM.dat", outputPath );
+        }
 
-//    }
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////             ASSIGNMENT 1                                      /////////////////////////////////
